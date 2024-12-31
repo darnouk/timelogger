@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Time Logger</title>
+    <style>
+        body {
+            /* Set the font family for the entire body */
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center; /* centered on the page, the rest is style from chatgpt when i told it "just make it look nice" */
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, textarea, button {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .total-time {
+            text-align: right;
+            font-size: 1.2em;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .clear-btn {
+            background-color: #e74c3c;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+            font-size: 1em;
+            width: 100%;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+        .clear-btn:hover {
+            background-color: #c0392b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Daily Time Logger</h1>
+        <form id="timeForm"> <!-- create a form to log time -->
+            <label for="hours">Hours:</label>
+            <select id="hours" required> <!-- required bc can't log time w/o any actual time-->
+                <!-- options for hours, 0-8 -->
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+            </select>
+            
+            <label for="minutes">Minutes:</label>
+            <select id="minutes" required>
+                <!-- options for minutes, 0-55 in increments of 5 -->
+                <option value="0">0</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="15">15</option>
+                <option value="20">20</option>
+                <option value="25">25</option>
+                <option value="30">30</option>
+                <option value="35">35</option>
+                <option value="40">40</option>
+                <option value="45">45</option>
+                <option value="50">50</option>
+                <option value="55">55</option>
+            </select>
+            
+            <label for="description">Task Description:</label>
+            <select id="descriptionTemplates" onchange="updateDescription()">
+                <!-- template options for task descriptions to save user time from typing -->
+                <option value="">Select a template (optional)</option>
+                <option value="Training">Training</option>
+                <option value="Meeting">Meeting</option>
+                <option value="Lunch">Lunch</option>
+                <option value="General Work">Work Session</option>
+            </select>
+            <textarea id="description" rows="4" placeholder="Describe the task (required)" required></textarea>
+            <!-- required so user can't log time w/o a task description -->
+            
+            <button type="submit">Log Task</button>
+        </form>
+        
+        <table id="logTable"> <!-- table to display logged time with task info, time, and a remove button -->
+            <thead>
+                <tr>
+                    <th>Task</th>
+                    <th>Hours</th>
+                    <th>Minutes</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Entries will be dynamically added here -->
+            </tbody>
+        </table>
+        
+        <div class="total-time" id="totalTime">Total Time: 0 hours, 0 minutes</div> <!-- display total time logged, default 0 -->
+        <button class="clear-btn" onclick="clearAll()">Clear All</button> <!-- uses clearAll function to clear all logged time on click -->
+    </div>
+
+    <script> // javascript to make the time logger function, chatgpt did this so hopefully it works
+        let totalHours = 0;
+        let totalMinutes = 0;
+
+        function loadSavedData() {
+            const savedEntries = JSON.parse(localStorage.getItem('logEntries')) || [];
+            const savedTotalTime = JSON.parse(localStorage.getItem('totalTime')) || { hours: 0, minutes: 0 };
+
+            savedEntries.forEach(entry => addEntryToTable(entry.description, entry.hours, entry.minutes, false));
+            totalHours = savedTotalTime.hours;
+            totalMinutes = savedTotalTime.minutes;
+            updateTotalTime(0, 0, false);
+        }
+
+        function updateDescription() {
+            const template = document.getElementById('descriptionTemplates').value;
+            document.getElementById('description').value = template;
+        }
+
+        function updateTotalTime(hours, minutes, add = true) {
+            if (add) {
+                totalHours += parseInt(hours);
+                totalMinutes += parseInt(minutes);
+            } else {
+                totalHours -= parseInt(hours);
+                totalMinutes -= parseInt(minutes);
+            }
+
+            totalHours += Math.floor(totalMinutes / 60);
+            totalMinutes = totalMinutes % 60;
+
+            localStorage.setItem('totalTime', JSON.stringify({ hours: totalHours, minutes: totalMinutes }));
+            document.getElementById('totalTime').textContent = `Total Time: ${totalHours} hours, ${totalMinutes} minutes`;
+        }
+
+        function removeEntry(row, hours, minutes) {
+            row.remove();
+            updateTotalTime(hours, minutes, false);
+            saveEntriesToLocalStorage();
+        }
+
+        function addEntryToTable(description, hours, minutes, save = true) {
+            const table = document.getElementById('logTable').querySelector('tbody');
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${description}</td>
+                <td>${hours}</td>
+                <td>${minutes}</td>
+                <td><button onclick="removeEntry(this.parentElement.parentElement, ${hours}, ${minutes})">Remove</button></td>
+            `;
+            table.appendChild(newRow);
+
+            if (save) {
+                saveEntriesToLocalStorage();
+            }
+        }
+
+        function saveEntriesToLocalStorage() { // save logged time to local storage in case user refreshes or leaves page
+            const rows = document.querySelectorAll('#logTable tbody tr');
+            const entries = Array.from(rows).map(row => {
+                const cells = row.querySelectorAll('td');
+                return {
+                    description: cells[0].textContent,
+                    hours: parseInt(cells[1].textContent),
+                    minutes: parseInt(cells[2].textContent)
+                };
+            });
+
+            localStorage.setItem('logEntries', JSON.stringify(entries)); // save entries to local storage
+        }
+
+        function clearAll() { // function to clear all logged time
+            // Clear table
+            document.getElementById('logTable').querySelector('tbody').innerHTML = '';
+
+            // Reset total time
+            totalHours = 0;
+            totalMinutes = 0;
+            updateTotalTime(0, 0, false);
+
+            // Clear localStorage
+            localStorage.removeItem('logEntries');
+            localStorage.removeItem('totalTime');
+        }
+
+        document.getElementById('timeForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const hours = document.getElementById('hours').value;
+            const minutes = document.getElementById('minutes').value;
+            const description = document.getElementById('description').value;
+
+            if (!description.trim()) {
+                alert('Please enter a task description.');
+                return;
+            }
+
+            addEntryToTable(description, hours, minutes);
+            updateTotalTime(hours, minutes);
+
+            document.getElementById('timeForm').reset();
+            document.getElementById('descriptionTemplates').selectedIndex = 0;
+        });
+
+        loadSavedData();
+    </script>
+</body>
+</html>
